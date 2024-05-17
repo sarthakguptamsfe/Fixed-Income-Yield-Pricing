@@ -67,7 +67,7 @@ def rebalance_portfolio(portfolio, target_duration, threshold=0.1):
 st.title("Fixed Income Portfolio Management")
 
 # Input API Key
-api_key = st.text_input("Enter your API Key")
+api_key = st.text_input("0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQ")
 if api_key:
     bond_data = get_bond_data(api_key)
     st.write(bond_data)
