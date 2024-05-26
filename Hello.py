@@ -12,11 +12,15 @@ api_key = '0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQ'
 def get_bond_data(api_key):
     url = f'https://financialmodelingprep.com/api/v3/treasury?apikey={api_key}'
     response = requests.get(url)
-    data = response.json()
-    if isinstance(data, list):
-        return data
+    if response.status_code == 200:
+        data = response.json()
+        if isinstance(data, list):
+            return data
+        else:
+            st.error("Error fetching bond data: " + data.get("error", "Unknown error"))
+            return None
     else:
-        st.error("Error fetching bond data: " + data.get("error", "Unknown error"))
+        st.error(f"Error fetching bond data: {response.status_code} - {response.reason}")
         return None
 
 # Function to calculate bond duration and convexity
@@ -29,29 +33,37 @@ def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm
     return duration, convexity
 
 # Function for yield curve data
-def get_yield_curve_data():
+def get_yield_curve_data(api_key):
     url = f'https://financialmodelingprep.com/api/v3/treasury/yield_curve?apikey={api_key}'
     response = requests.get(url)
-    data = response.json()
-    if isinstance(data, list):
-        yield_curve = pd.DataFrame(data)
-        yield_curve['date'] = pd.to_datetime(yield_curve['date'])
-        return yield_curve
+    if response.status_code == 200:
+        data = response.json()
+        if isinstance(data, list):
+            yield_curve = pd.DataFrame(data)
+            yield_curve['date'] = pd.to_datetime(yield_curve['date'])
+            return yield_curve
+        else:
+            st.error("Error fetching yield curve data: " + data.get("error", "Unknown error"))
+            return None
     else:
-        st.error("Error fetching yield curve data: " + data.get("error", "Unknown error"))
+        st.error(f"Error fetching yield curve data: {response.status_code} - {response.reason}")
         return None
 
 # Function to fetch market data
-def fetch_market_data():
+def fetch_market_data(api_key):
     url = f'https://financialmodelingprep.com/api/v3/historical-price-full/stock_market?apikey={api_key}'
     response = requests.get(url)
-    data = response.json()
-    if 'historical' in data:
-        market_data = pd.DataFrame(data['historical'])
-        market_data['date'] = pd.to_datetime(market_data['date'])
-        return market_data
+    if response.status_code == 200:
+        data = response.json()
+        if 'historical' in data:
+            market_data = pd.DataFrame(data['historical'])
+            market_data['date'] = pd.to_datetime(market_data['date'])
+            return market_data
+        else:
+            st.error("Error fetching market data: " + data.get("error", "Unknown error"))
+            return None
     else:
-        st.error("Error fetching market data: " + data.get("error", "Unknown error"))
+        st.error(f"Error fetching market data: {response.status_code} - {response.reason}")
         return None
 
 # Function for machine learning predictions
@@ -101,7 +113,7 @@ if st.button('Calculate Duration and Convexity'):
 
 # Yield Curve Analysis
 st.subheader('Yield Curve Analysis')
-yield_curve_data = get_yield_curve_data()
+yield_curve_data = get_yield_curve_data(api_key)
 if yield_curve_data is not None:
     fig = px.line(yield_curve_data, x='date', y='yield', title='Yield Curve')
     st.plotly_chart(fig)
@@ -147,7 +159,7 @@ if st.button('Calculate Portfolio Metrics'):
 
 # Market Data Analysis
 st.subheader('Market Data Analysis')
-market_data = fetch_market_data()
+market_data = fetch_market_data(api_key)
 if market_data is not None:
     fig = px.line(market_data, x='date', y='interestRate', title='Interest Rate Over Time')
     st.plotly_chart(fig)
