@@ -3,6 +3,11 @@ import pandas as pd
 import numpy as np
 from fredapi import Fred
 import plotly.express as px
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Your FRED API key
 fred_api_key = 'ccb0a6057d3c865f4e10e7ec2c99826a'
@@ -12,8 +17,13 @@ fred = Fred(api_key=fred_api_key)
 
 # Function to get bond data
 def get_bond_data(series_id, start_date, end_date):
-    data = fred.get_series(series_id, start_date, end_date)
-    return data
+    try:
+        data = fred.get_series(series_id, start_date, end_date)
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching data for series ID {series_id}: {e}")
+        st.error(f"Error fetching data for series ID {series_id}. Please check the series ID and date range.")
+        return None
 
 # Function to calculate bond duration and convexity
 def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm):
@@ -56,9 +66,13 @@ coupon_rate = st.number_input('Coupon Rate', value=0.05)
 years_to_maturity = st.number_input('Years to Maturity', value=10)
 ytm = st.number_input('Yield to Maturity', value=0.03)
 if st.button('Calculate Duration and Convexity'):
-    duration, convexity = calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm)
-    st.write(f'Duration: {duration:.2f}')
-    st.write(f'Convexity: {convexity:.2f}')
+    try:
+        duration, convexity = calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm)
+        st.write(f'Duration: {duration:.2f}')
+        st.write(f'Convexity: {convexity:.2f}')
+    except Exception as e:
+        logger.error(f"Error calculating duration and convexity: {e}")
+        st.error(f"Error calculating duration and convexity. Please check your input values.")
 
 # Bond Portfolio Management
 st.subheader('Bond Portfolio Management')
@@ -91,25 +105,33 @@ portfolio_value = sum([bond['Price'] * (bond['Weight'] / 100) for bond in bonds]
 st.write(f'Total Portfolio Value: ${portfolio_value}')
 
 if st.button('Calculate Portfolio Metrics'):
-    for bond in bonds:
-        bond['Duration'], bond['Convexity'] = calculate_duration_convexity(
-            bond['Price'], bond['Coupon Rate'], bond['Years to Maturity'], bond['Yield to Maturity']
-        )
-    portfolio_df = pd.DataFrame(bonds)
-    st.write('Portfolio Details:')
-    st.write(portfolio_df)
+    try:
+        for bond in bonds:
+            bond['Duration'], bond['Convexity'] = calculate_duration_convexity(
+                bond['Price'], bond['Coupon Rate'], bond['Years to Maturity'], bond['Yield to Maturity']
+            )
+        portfolio_df = pd.DataFrame(bonds)
+        st.write('Portfolio Details:')
+        st.write(portfolio_df)
+    except Exception as e:
+        logger.error(f"Error calculating portfolio metrics: {e}")
+        st.error(f"Error calculating portfolio metrics. Please check your input values.")
 
 # Scenario Analysis
 st.subheader('Scenario Analysis')
 rate_change = st.number_input('Interest Rate Change', value=0.01)
 if st.button('Run Scenario Analysis'):
-    for bond in bonds:
-        bond['New Duration'], bond['New Convexity'] = calculate_duration_convexity(
-            bond['Price'], bond['Coupon Rate'], bond['Years to Maturity'], bond['Yield to Maturity'] + rate_change
-        )
-    scenario_df = pd.DataFrame(bonds)
-    st.write('Scenario Analysis Details:')
-    st.write(scenario_df)
+    try:
+        for bond in bonds:
+            bond['New Duration'], bond['New Convexity'] = calculate_duration_convexity(
+                bond['Price'], bond['Coupon Rate'], bond['Years to Maturity'], bond['Yield to Maturity'] + rate_change
+            )
+        scenario_df = pd.DataFrame(bonds)
+        st.write('Scenario Analysis Details:')
+        st.write(scenario_df)
+    except Exception as e:
+        logger.error(f"Error running scenario analysis: {e}")
+        st.error(f"Error running scenario analysis. Please check your input values.")
 
 # Interactive Visualizations
 st.subheader('Interactive Visualizations')
