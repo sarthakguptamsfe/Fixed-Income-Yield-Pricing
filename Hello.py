@@ -1,20 +1,18 @@
+
+
 import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
 import plotly.express as px
 import plotly.graph_objects as go
 
 # Your API key
-api_key = '0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQ'
+api_key = '0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQe'
 
 # Function to get bond data
 def get_bond_data(api_key):
-    url = f'https://financialmodelingprep.com/api/v3/bond/all?apikey={api_key}'
+    url = f'https://financialmodelingprep.com/api/v3/treasury?apikey={api_key}'
     response = requests.get(url)
     return response.json()
 
@@ -29,20 +27,25 @@ def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm
 
 # Function for yield curve data
 def get_yield_curve_data():
-    return pd.DataFrame({
-        'Maturity': [1, 2, 3, 5, 7, 10, 20, 30],
-        'Yield': [0.5, 0.6, 0.7, 1.0, 1.2, 1.5, 2.0, 2.5]
-    })
+    url = f'https://financialmodelingprep.com/api/v3/treasury/yield_curve?apikey={api_key}'
+    response = requests.get(url)
+    data = response.json()
+    yield_curve = pd.DataFrame(data)
+    yield_curve['date'] = pd.to_datetime(yield_curve['date'])
+    return yield_curve
 
 # Function to fetch market data
 def fetch_market_data():
-    return pd.DataFrame({
-        'Date': pd.date_range(start='2023-01-01', periods=100),
-        'Interest Rate': np.random.rand(100)
-    })
+    url = f'https://financialmodelingprep.com/api/v3/historical-price-full/stock_market?apikey={api_key}'
+    response = requests.get(url)
+    data = response.json()
+    market_data = pd.DataFrame(data['historical'])
+    market_data['date'] = pd.to_datetime(market_data['date'])
+    return market_data
 
 # Function for machine learning predictions
 def predict_interest_rates(data):
+    from sklearn.linear_model import LinearRegression
     model = LinearRegression()
     X = np.arange(len(data)).reshape(-1, 1)
     y = data['Interest Rate'].values
@@ -68,10 +71,10 @@ st.write('''
 ''')
 
 # Bond Data Display
-st.subheader('Bond Data')
+st.subheader('Live Bond Data')
 bond_data = get_bond_data(api_key)
 if bond_data:
-    st.write(bond_data)
+    st.write(pd.DataFrame(bond_data))
 
 # Bond Duration and Convexity Calculation
 st.subheader('Bond Duration and Convexity Calculation')
@@ -87,33 +90,52 @@ if st.button('Calculate Duration and Convexity'):
 # Yield Curve Analysis
 st.subheader('Yield Curve Analysis')
 yield_curve_data = get_yield_curve_data()
-fig = px.line(yield_curve_data, x='Maturity', y='Yield', title='Yield Curve')
+fig = px.line(yield_curve_data, x='date', y='yield', title='Yield Curve')
 st.plotly_chart(fig)
 
 # Bond Portfolio Management
 st.subheader('Bond Portfolio Management')
-portfolio = pd.DataFrame({
-    'Bond': ['Bond A', 'Bond B', 'Bond C'],
-    'Price': [1000, 1000, 1000],
-    'Coupon Rate': [0.05, 0.04, 0.03],
-    'Years to Maturity': [10, 5, 20],
-    'Yield to Maturity': [0.03, 0.025, 0.035]
-})
-st.write(portfolio)
-portfolio['Duration'] = portfolio.apply(
-    lambda row: calculate_duration_convexity(row['Price'], row['Coupon Rate'], row['Years to Maturity'], row['Yield to Maturity'])[0],
-    axis=1
-)
-portfolio['Convexity'] = portfolio.apply(
-    lambda row: calculate_duration_convexity(row['Price'], row['Coupon Rate'], row['Years to Maturity'], row['Yield to Maturity'])[1],
-    axis=1
-)
-st.write('Updated Portfolio with Duration and Convexity:', portfolio)
+num_bonds = st.slider('Select number of bonds (up to 10):', 1, 10, 1)
+
+bonds = []
+total_weight = 0
+
+for i in range(num_bonds):
+    st.write(f'**Bond {i+1}**')
+    bond_name = st.text_input(f'Enter Bond Name {i+1}:', key=f'bond_name_{i}')
+    bond_price = st.number_input(f'Enter Price for Bond {i+1}:', value=1000, key=f'bond_price_{i}')
+    coupon_rate = st.number_input(f'Enter Coupon Rate for Bond {i+1}:', value=0.05, key=f'coupon_rate_{i}')
+    years_to_maturity = st.number_input(f'Enter Years to Maturity for Bond {i+1}:', value=10, key=f'years_to_maturity_{i}')
+    ytm = st.number_input(f'Enter Yield to Maturity for Bond {i+1}:', value=0.03, key=f'ytm_{i}')
+    weight = st.number_input(f'Enter Weight for Bond {i+1} (%):', value=0.0, key=f'weight_{i}')
+    bonds.append({
+        'Bond Name': bond_name,
+        'Price': bond_price,
+        'Coupon Rate': coupon_rate,
+        'Years to Maturity': years_to_maturity,
+        'Yield to Maturity': ytm,
+        'Weight': weight
+    })
+    total_weight += weight
+
+st.write(f'Total Weight: {total_weight}%')
+
+portfolio_value = sum([bond['Price'] * (bond['Weight'] / 100) for bond in bonds])
+st.write(f'Total Portfolio Value: ${portfolio_value}')
+
+if st.button('Calculate Portfolio Metrics'):
+    for bond in bonds:
+        bond['Duration'], bond['Convexity'] = calculate_duration_convexity(
+            bond['Price'], bond['Coupon Rate'], bond['Years to Maturity'], bond['Yield to Maturity']
+        )
+    portfolio_df = pd.DataFrame(bonds)
+    st.write('Portfolio Details:')
+    st.write(portfolio_df)
 
 # Market Data Analysis
 st.subheader('Market Data Analysis')
 market_data = fetch_market_data()
-fig = px.line(market_data, x='Date', y='Interest Rate', title='Interest Rate Over Time')
+fig = px.line(market_data, x='date', y='interestRate', title='Interest Rate Over Time')
 st.plotly_chart(fig)
 
 # Machine Learning Predictions
@@ -121,8 +143,8 @@ st.subheader('Machine Learning Predictions')
 predictions = predict_interest_rates(market_data)
 market_data['Predicted Interest Rate'] = predictions
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=market_data['Date'], y=market_data['Interest Rate'], mode='lines', name='Actual Rates'))
-fig.add_trace(go.Scatter(x=market_data['Date'], y=market_data['Predicted Interest Rate'], mode='lines', name='Predicted Rates'))
+fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['interestRate'], mode='lines', name='Actual Rates'))
+fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['Predicted Interest Rate'], mode='lines', name='Predicted Rates'))
 st.plotly_chart(fig)
 
 # Scenario Analysis
@@ -135,7 +157,7 @@ if st.button('Run Scenario Analysis'):
 
 # Interactive Visualizations
 st.subheader('Interactive Visualizations')
-fig = px.histogram(portfolio, x='Duration', title='Duration Distribution')
+fig = px.histogram(portfolio_df, x='Duration', title='Duration Distribution')
 st.plotly_chart(fig)
 
 # Custom Reports
@@ -153,6 +175,6 @@ if st.button('Generate Report'):
     
     Portfolio Analysis
     ------------------
-    {portfolio.to_string(index=False)}
+    {portfolio_df.to_string(index=False)}
     """
-    st.download_button('Download Report', report)
+    st.download_button('Download Report', data=report, file_name='bond_analysis_report.txt', mime='text/plain')
