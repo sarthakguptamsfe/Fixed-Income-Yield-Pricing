@@ -1,28 +1,21 @@
 import streamlit as st
-import requests
 import pandas as pd
 import numpy as np
+from fredapi import Fred
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Your API key
-api_key = '0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQ'
+# Your FRED API key
+fred_api_key = 'ccb0a6057d3c865f4e10e7ec2c99826a'
 
-# Function to get bond data
-def get_bond_data(api_key):
-    url = f'https://financialmodelingprep.com/api/v3/treasury?apikey={api_key}'
-    st.write(f"Requesting bond data from: {url}")  # Debug information
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if isinstance(data, list):
-            return data
-        else:
-            st.error("Error fetching bond data: " + data.get("error", "Unknown error"))
-            return None
-    else:
-        st.error(f"Error fetching bond data: {response.status_code} - {response.reason}")
-        return None
+# Initialize FRED
+fred = Fred(api_key=fred_api_key)
+
+# Function to get bond data (e.g., 10-Year Treasury Constant Maturity Rate)
+def get_bond_data(fred):
+    series_id = 'DGS10'  # 10-Year Treasury Constant Maturity Rate
+    data = fred.get_series(series_id)
+    return data
 
 # Function to calculate bond duration and convexity
 def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm):
@@ -33,56 +26,13 @@ def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm
     convexity = sum(t * (t + 1) * cf for t, cf in enumerate(cash_flows, 1)) / (sum(cash_flows) * (1 + ytm) ** 2)
     return duration, convexity
 
-# Function for yield curve data
-def get_yield_curve_data(api_key):
-    url = f'https://financialmodelingprep.com/api/v3/treasury/yield_curve?apikey={api_key}'
-    st.write(f"Requesting yield curve data from: {url}")  # Debug information
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if isinstance(data, list):
-            yield_curve = pd.DataFrame(data)
-            yield_curve['date'] = pd.to_datetime(yield_curve['date'])
-            return yield_curve
-        else:
-            st.error("Error fetching yield curve data: " + data.get("error", "Unknown error"))
-            return None
-    else:
-        st.error(f"Error fetching yield curve data: {response.status_code} - {response.reason}")
-        return None
-
-# Function to fetch market data
-def fetch_market_data(api_key):
-    url = f'https://financialmodelingprep.com/api/v3/historical-price-full/index?apikey={api_key}'
-    st.write(f"Requesting market data from: {url}")  # Debug information
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if 'historical' in data:
-            market_data = pd.DataFrame(data['historical'])
-            market_data['date'] = pd.to_datetime(market_data['date'])
-            return market_data
-        else:
-            st.error("Error fetching market data: " + data.get("error", "Unknown error"))
-            return None
-    else:
-        st.error(f"Error fetching market data: {response.status_code} - {response.reason}")
-        return None
-
-# Function for machine learning predictions
-def predict_interest_rates(data):
-    from sklearn.linear_model import LinearRegression
-    model = LinearRegression()
-    X = np.arange(len(data)).reshape(-1, 1)
-    y = data['Interest Rate'].values
-    model.fit(X, y)
-    return model.predict(X)
-
-# Function for scenario analysis
-def scenario_analysis(bond_price, coupon_rate, years_to_maturity, ytm, rate_change):
-    new_ytm = ytm + rate_change
-    duration, convexity = calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, new_ytm)
-    return duration, convexity
+# Function to get yield curve data
+def get_yield_curve_data(fred):
+    series_ids = ['DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20', 'DGS30']
+    data = {series_id: fred.get_series(series_id) for series_id in series_ids}
+    yield_curve = pd.DataFrame(data)
+    yield_curve['date'] = yield_curve.index
+    return yield_curve
 
 # Streamlit App
 st.title('Advanced Bond Analysis App')
@@ -98,10 +48,9 @@ st.write('''
 
 # Bond Data Display
 st.subheader('Live Bond Data')
-bond_data = get_bond_data(api_key)
-if bond_data:
-    bond_df = pd.DataFrame(bond_data)
-    st.write(bond_df)
+bond_data = get_bond_data(fred)
+if bond_data is not None:
+    st.write(bond_data)
 
 # Bond Duration and Convexity Calculation
 st.subheader('Bond Duration and Convexity Calculation')
@@ -116,9 +65,9 @@ if st.button('Calculate Duration and Convexity'):
 
 # Yield Curve Analysis
 st.subheader('Yield Curve Analysis')
-yield_curve_data = get_yield_curve_data(api_key)
+yield_curve_data = get_yield_curve_data(fred)
 if yield_curve_data is not None:
-    fig = px.line(yield_curve_data, x='date', y='yield', title='Yield Curve')
+    fig = px.line(yield_curve_data, x='date', y=yield_curve_data.columns[:-1], title='Yield Curve')
     st.plotly_chart(fig)
 
 # Bond Portfolio Management
@@ -159,23 +108,6 @@ if st.button('Calculate Portfolio Metrics'):
     portfolio_df = pd.DataFrame(bonds)
     st.write('Portfolio Details:')
     st.write(portfolio_df)
-
-# Market Data Analysis
-st.subheader('Market Data Analysis')
-market_data = fetch_market_data(api_key)
-if market_data is not None:
-    fig = px.line(market_data, x='date', y='close', title='Market Data Over Time')
-    st.plotly_chart(fig)
-
-# Machine Learning Predictions
-st.subheader('Machine Learning Predictions')
-if market_data is not None:
-    predictions = predict_interest_rates(market_data)
-    market_data['Predicted Interest Rate'] = predictions
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['close'], mode='lines', name='Actual Rates'))
-    fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['Predicted Interest Rate'], mode='lines', name='Predicted Rates'))
-    st.plotly_chart(fig)
 
 # Scenario Analysis
 st.subheader('Scenario Analysis')
