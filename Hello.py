@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from fredapi import Fred
 import plotly.express as px
-import plotly.graph_objects as go
 
 # Your FRED API key
 fred_api_key = 'ccb0a6057d3c865f4e10e7ec2c99826a'
@@ -11,10 +10,9 @@ fred_api_key = 'ccb0a6057d3c865f4e10e7ec2c99826a'
 # Initialize FRED
 fred = Fred(api_key=fred_api_key)
 
-# Function to get bond data (e.g., 10-Year Treasury Constant Maturity Rate)
-def get_bond_data(fred):
-    series_id = 'DGS10'  # 10-Year Treasury Constant Maturity Rate
-    data = fred.get_series(series_id)
+# Function to get bond data
+def get_bond_data(series_id, start_date, end_date):
+    data = fred.get_series(series_id, start_date, end_date)
     return data
 
 # Function to calculate bond duration and convexity
@@ -25,14 +23,6 @@ def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm
     duration = sum(t * cf for t, cf in enumerate(cash_flows, 1)) / sum(cash_flows)
     convexity = sum(t * (t + 1) * cf for t, cf in enumerate(cash_flows, 1)) / (sum(cash_flows) * (1 + ytm) ** 2)
     return duration, convexity
-
-# Function to get yield curve data
-def get_yield_curve_data(fred):
-    series_ids = ['DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20', 'DGS30']
-    data = {series_id: fred.get_series(series_id) for series_id in series_ids}
-    yield_curve = pd.DataFrame(data)
-    yield_curve['date'] = yield_curve.index
-    return yield_curve
 
 # Streamlit App
 st.title('Advanced Bond Analysis App')
@@ -46,11 +36,18 @@ st.write('''
 - **Yield Curve:** A graph showing the relationship between bond yields and maturities.
 ''')
 
-# Bond Data Display
-st.subheader('Live Bond Data')
-bond_data = get_bond_data(fred)
-if bond_data is not None:
-    st.write(bond_data)
+# Bond Data Query
+st.subheader('Live Bond Data Query')
+bond_series_id = st.text_input('Enter Bond Series ID (e.g., DGS10 for 10-Year Treasury):')
+start_date = st.date_input('Start Date')
+end_date = st.date_input('End Date')
+if st.button('Get Bond Data'):
+    bond_data = get_bond_data(bond_series_id, start_date, end_date)
+    if bond_data is not None:
+        st.write(bond_data)
+        st.subheader('Yield Curve Analysis')
+        fig = px.line(bond_data, x=bond_data.index, y=bond_data.values, title='Yield Curve')
+        st.plotly_chart(fig)
 
 # Bond Duration and Convexity Calculation
 st.subheader('Bond Duration and Convexity Calculation')
@@ -62,13 +59,6 @@ if st.button('Calculate Duration and Convexity'):
     duration, convexity = calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm)
     st.write(f'Duration: {duration:.2f}')
     st.write(f'Convexity: {convexity:.2f}')
-
-# Yield Curve Analysis
-st.subheader('Yield Curve Analysis')
-yield_curve_data = get_yield_curve_data(fred)
-if yield_curve_data is not None:
-    fig = px.line(yield_curve_data, x='date', y=yield_curve_data.columns[:-1], title='Yield Curve')
-    st.plotly_chart(fig)
 
 # Bond Portfolio Management
 st.subheader('Bond Portfolio Management')
@@ -113,9 +103,13 @@ if st.button('Calculate Portfolio Metrics'):
 st.subheader('Scenario Analysis')
 rate_change = st.number_input('Interest Rate Change', value=0.01)
 if st.button('Run Scenario Analysis'):
-    new_duration, new_convexity = scenario_analysis(bond_price, coupon_rate, years_to_maturity, ytm, rate_change)
-    st.write(f'New Duration: {new_duration:.2f}')
-    st.write(f'New Convexity: {new_convexity:.2f}')
+    for bond in bonds:
+        bond['New Duration'], bond['New Convexity'] = calculate_duration_convexity(
+            bond['Price'], bond['Coupon Rate'], bond['Years to Maturity'], bond['Yield to Maturity'] + rate_change
+        )
+    scenario_df = pd.DataFrame(bonds)
+    st.write('Scenario Analysis Details:')
+    st.write(scenario_df)
 
 # Interactive Visualizations
 st.subheader('Interactive Visualizations')
