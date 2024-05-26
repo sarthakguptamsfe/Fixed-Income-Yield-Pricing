@@ -68,54 +68,55 @@ for i in range(num_bonds):
         'Coupon Rate': coupon_rate
     })
 
-# Fetch Spot Rates
-spot_rates = get_spot_rates()
+if st.button('Calculate Portfolio Metrics'):
+    # Fetch Spot Rates
+    spot_rates = get_spot_rates()
 
-# Calculate Metrics and Value Bonds
-portfolio_value = 0
-portfolio_duration = 0
-portfolio_convexity = 0
+    # Calculate Metrics and Value Bonds
+    portfolio_value = 0
+    portfolio_duration = 0
+    portfolio_convexity = 0
 
-for bond in bonds:
-    bond_data = get_bond_data(bond['Bond Name'], bond['Purchase Date'], bond['Maturity Date'])
-    if bond_data is not None:
-        bond_price = bond_data.iloc[-1]
-        years_to_maturity = (bond['Maturity Date'] - bond['Purchase Date']).days / 365
-        ytm = bond_data.mean()
-        duration, convexity = calculate_duration_convexity(bond_price, bond['Coupon Rate'], int(years_to_maturity), ytm)
-        cash_flows = [bond['Coupon Rate'] * bond_price for _ in range(int(years_to_maturity))]
-        cash_flows[-1] += bond_price
-        bond_value = value_bond_using_spot_rate(cash_flows, spot_rates)
-        portfolio_value += bond_value
-        portfolio_duration += duration
-        portfolio_convexity += convexity
-        bond.update({'Duration': duration, 'Convexity': convexity, 'Value': bond_value})
+    for bond in bonds:
+        bond_data = get_bond_data(bond['Bond Name'], bond['Purchase Date'], bond['Maturity Date'])
+        if bond_data is not None:
+            bond_price = bond_data.iloc[-1]
+            years_to_maturity = (bond['Maturity Date'] - bond['Purchase Date']).days / 365
+            ytm = bond_data.mean()
+            duration, convexity = calculate_duration_convexity(bond_price, bond['Coupon Rate'], int(years_to_maturity), ytm)
+            cash_flows = [bond['Coupon Rate'] * bond_price for _ in range(int(years_to_maturity))]
+            cash_flows[-1] += bond_price
+            bond_value = value_bond_using_spot_rate(cash_flows, spot_rates)
+            portfolio_value += bond_value
+            portfolio_duration += duration
+            portfolio_convexity += convexity
+            bond.update({'Duration': duration, 'Convexity': convexity, 'Value': bond_value})
 
-# Display Portfolio Metrics
-st.write(f'Total Portfolio Value: ${portfolio_value:.2f}')
-st.write(f'Total Portfolio Duration: {portfolio_duration:.2f}')
-st.write(f'Total Portfolio Convexity: {portfolio_convexity:.2f}')
+    # Display Portfolio Metrics
+    st.write(f'Total Portfolio Value: ${portfolio_value:.2f}')
+    st.write(f'Total Portfolio Duration: {portfolio_duration:.2f}')
+    st.write(f'Total Portfolio Convexity: {portfolio_convexity:.2f}')
 
-# Interactive Visualizations
-st.subheader('Interactive Visualizations')
-portfolio_df = pd.DataFrame(bonds)
-fig = px.bar(portfolio_df, x='Bond Name', y='Value', title='Bond Values')
-st.plotly_chart(fig)
-fig = px.histogram(portfolio_df, x='Duration', title='Duration Distribution')
-st.plotly_chart(fig)
+    # Interactive Visualizations
+    st.subheader('Interactive Visualizations')
+    portfolio_df = pd.DataFrame(bonds)
+    fig = px.bar(portfolio_df, x='Bond Name', y='Value', title='Bond Values')
+    st.plotly_chart(fig)
+    fig = px.histogram(portfolio_df, x='Duration', title='Duration Distribution')
+    st.plotly_chart(fig)
 
-# Custom Reports
-st.subheader('Custom Reports')
-if st.button('Generate Report'):
-    report = f"""
-    Bond Analysis Report
-    ====================
-    Total Portfolio Value: ${portfolio_value:.2f}
-    Total Portfolio Duration: {portfolio_duration:.2f}
-    Total Portfolio Convexity: {portfolio_convexity:.2f}
-    
-    Bond Details
-    ------------
-    {portfolio_df.to_string(index=False)}
-    """
-    st.download_button('Download Report', data=report, file_name='bond_analysis_report.txt', mime='text/plain')
+    # Custom Reports
+    st.subheader('Custom Reports')
+    if st.button('Generate Report'):
+        report = f"""
+        Bond Analysis Report
+        ====================
+        Total Portfolio Value: ${portfolio_value:.2f}
+        Total Portfolio Duration: {portfolio_duration:.2f}
+        Total Portfolio Convexity: {portfolio_convexity:.2f}
+        
+        Bond Details
+        ------------
+        {portfolio_df.to_string(index=False)}
+        """
+        st.download_button('Download Report', data=report, file_name='bond_analysis_report.txt', mime='text/plain')
