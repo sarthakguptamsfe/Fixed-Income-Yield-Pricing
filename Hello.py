@@ -3,6 +3,8 @@ import requests
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import sklearn
+import scikit-learn
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
@@ -59,7 +61,7 @@ st.title('Advanced Bond Analysis App')
 
 # API Key Input
 api_key = '0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQ'
-
+#g
 if api_key:
     bond_data = get_bond_data(api_key)
     
