@@ -11,6 +11,7 @@ api_key = '0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQ'
 # Function to get bond data
 def get_bond_data(api_key):
     url = f'https://financialmodelingprep.com/api/v3/treasury?apikey={api_key}'
+    st.write(f"Requesting bond data from: {url}")  # Debug information
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
@@ -35,6 +36,7 @@ def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm
 # Function for yield curve data
 def get_yield_curve_data(api_key):
     url = f'https://financialmodelingprep.com/api/v3/treasury/yield_curve?apikey={api_key}'
+    st.write(f"Requesting yield curve data from: {url}")  # Debug information
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
@@ -51,7 +53,8 @@ def get_yield_curve_data(api_key):
 
 # Function to fetch market data
 def fetch_market_data(api_key):
-    url = f'https://financialmodelingprep.com/api/v3/historical-price-full/market?apikey={api_key}'
+    url = f'https://financialmodelingprep.com/api/v3/historical-price-full/index?apikey={api_key}'
+    st.write(f"Requesting market data from: {url}")  # Debug information
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
