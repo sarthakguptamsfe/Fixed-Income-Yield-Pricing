@@ -1,4 +1,4 @@
-import streamlit as st
+reamlit as st
 import requests
 import pandas as pd
 import numpy as np
@@ -58,7 +58,7 @@ def scenario_analysis(bond_price, coupon_rate, years_to_maturity, ytm, rate_chan
 st.title('Advanced Bond Analysis App')
 
 # API Key Input
-api_key = st.text_input('Enter your Financial Modeling Prep API Key')
+api_key = st.text_input('0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQ')
 
 if api_key:
     bond_data = get_bond_data(api_key)
