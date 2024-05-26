@@ -4,15 +4,19 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-#dsx
+
 # Your API key
-api_key = '0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQe'
+api_key = '0uTB4phKEr4dHcB2zJMmVmKUcywpkxDQ'
 
 # Function to get bond data
 def get_bond_data(api_key):
     url = f'https://financialmodelingprep.com/api/v3/treasury?apikey={api_key}'
     response = requests.get(url)
-    return response.json()
+    data = response.json()
+    if isinstance(data, dict) and "error" in data:
+        st.error("Error fetching bond data: " + data["error"])
+        return None
+    return data
 
 # Function to calculate bond duration and convexity
 def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm):
@@ -72,7 +76,11 @@ st.write('''
 st.subheader('Live Bond Data')
 bond_data = get_bond_data(api_key)
 if bond_data:
-    st.write(pd.DataFrame(bond_data))
+    try:
+        bond_df = pd.DataFrame(bond_data)
+        st.write(bond_df)
+    except ValueError as e:
+        st.error(f"Error creating DataFrame: {e}")
 
 # Bond Duration and Convexity Calculation
 st.subheader('Bond Duration and Convexity Calculation')
@@ -155,24 +163,28 @@ if st.button('Run Scenario Analysis'):
 
 # Interactive Visualizations
 st.subheader('Interactive Visualizations')
-fig = px.histogram(portfolio_df, x='Duration', title='Duration Distribution')
-st.plotly_chart(fig)
+if 'portfolio_df' in locals():
+    fig = px.histogram(portfolio_df, x='Duration', title='Duration Distribution')
+    st.plotly_chart(fig)
 
 # Custom Reports
 st.subheader('Custom Reports')
 if st.button('Generate Report'):
-    report = f"""
-    Bond Analysis Report
-    ====================
-    Bond Price: {bond_price}
-    Coupon Rate: {coupon_rate}
-    Years to Maturity: {years_to_maturity}
-    Yield to Maturity: {ytm}
-    Duration: {duration:.2f}
-    Convexity: {convexity:.2f}
-    
-    Portfolio Analysis
-    ------------------
-    {portfolio_df.to_string(index=False)}
-    """
-    st.download_button('Download Report', data=report, file_name='bond_analysis_report.txt', mime='text/plain')
+    if 'portfolio_df' in locals():
+        report = f"""
+        Bond Analysis Report
+        ====================
+        Bond Price: {bond_price}
+        Coupon Rate: {coupon_rate}
+        Years to Maturity: {years_to_maturity}
+        Yield to Maturity: {ytm}
+        Duration: {duration:.2f}
+        Convexity: {convexity:.2f}
+        
+        Portfolio Analysis
+        ------------------
+        {portfolio_df.to_string(index=False)}
+        """
+        st.download_button('Download Report', data=report, file_name='bond_analysis_report.txt', mime='text/plain')
+    else:
+        st.error("Please calculate portfolio metrics first.")
