@@ -51,7 +51,7 @@ def get_yield_curve_data(api_key):
 
 # Function to fetch market data
 def fetch_market_data(api_key):
-    url = f'https://financialmodelingprep.com/api/v3/historical-price-full/stock_market?apikey={api_key}'
+    url = f'https://financialmodelingprep.com/api/v3/historical-price-full/market?apikey={api_key}'
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
@@ -161,7 +161,7 @@ if st.button('Calculate Portfolio Metrics'):
 st.subheader('Market Data Analysis')
 market_data = fetch_market_data(api_key)
 if market_data is not None:
-    fig = px.line(market_data, x='date', y='interestRate', title='Interest Rate Over Time')
+    fig = px.line(market_data, x='date', y='close', title='Market Data Over Time')
     st.plotly_chart(fig)
 
 # Machine Learning Predictions
@@ -170,7 +170,7 @@ if market_data is not None:
     predictions = predict_interest_rates(market_data)
     market_data['Predicted Interest Rate'] = predictions
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['interestRate'], mode='lines', name='Actual Rates'))
+    fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['close'], mode='lines', name='Actual Rates'))
     fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['Predicted Interest Rate'], mode='lines', name='Predicted Rates'))
     st.plotly_chart(fig)
 
