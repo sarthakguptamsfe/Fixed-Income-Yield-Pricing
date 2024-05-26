@@ -13,10 +13,11 @@ def get_bond_data(api_key):
     url = f'https://financialmodelingprep.com/api/v3/treasury?apikey={api_key}'
     response = requests.get(url)
     data = response.json()
-    if isinstance(data, dict) and "error" in data:
-        st.error("Error fetching bond data: " + data["error"])
+    if isinstance(data, list):
+        return data
+    else:
+        st.error("Error fetching bond data: " + data.get("error", "Unknown error"))
         return None
-    return data
 
 # Function to calculate bond duration and convexity
 def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm):
@@ -32,18 +33,26 @@ def get_yield_curve_data():
     url = f'https://financialmodelingprep.com/api/v3/treasury/yield_curve?apikey={api_key}'
     response = requests.get(url)
     data = response.json()
-    yield_curve = pd.DataFrame(data)
-    yield_curve['date'] = pd.to_datetime(yield_curve['date'])
-    return yield_curve
+    if isinstance(data, list):
+        yield_curve = pd.DataFrame(data)
+        yield_curve['date'] = pd.to_datetime(yield_curve['date'])
+        return yield_curve
+    else:
+        st.error("Error fetching yield curve data: " + data.get("error", "Unknown error"))
+        return None
 
 # Function to fetch market data
 def fetch_market_data():
     url = f'https://financialmodelingprep.com/api/v3/historical-price-full/stock_market?apikey={api_key}'
     response = requests.get(url)
     data = response.json()
-    market_data = pd.DataFrame(data['historical'])
-    market_data['date'] = pd.to_datetime(market_data['date'])
-    return market_data
+    if 'historical' in data:
+        market_data = pd.DataFrame(data['historical'])
+        market_data['date'] = pd.to_datetime(market_data['date'])
+        return market_data
+    else:
+        st.error("Error fetching market data: " + data.get("error", "Unknown error"))
+        return None
 
 # Function for machine learning predictions
 def predict_interest_rates(data):
@@ -76,11 +85,8 @@ st.write('''
 st.subheader('Live Bond Data')
 bond_data = get_bond_data(api_key)
 if bond_data:
-    try:
-        bond_df = pd.DataFrame(bond_data)
-        st.write(bond_df)
-    except ValueError as e:
-        st.error(f"Error creating DataFrame: {e}")
+    bond_df = pd.DataFrame(bond_data)
+    st.write(bond_df)
 
 # Bond Duration and Convexity Calculation
 st.subheader('Bond Duration and Convexity Calculation')
@@ -96,8 +102,9 @@ if st.button('Calculate Duration and Convexity'):
 # Yield Curve Analysis
 st.subheader('Yield Curve Analysis')
 yield_curve_data = get_yield_curve_data()
-fig = px.line(yield_curve_data, x='date', y='yield', title='Yield Curve')
-st.plotly_chart(fig)
+if yield_curve_data is not None:
+    fig = px.line(yield_curve_data, x='date', y='yield', title='Yield Curve')
+    st.plotly_chart(fig)
 
 # Bond Portfolio Management
 st.subheader('Bond Portfolio Management')
@@ -141,17 +148,19 @@ if st.button('Calculate Portfolio Metrics'):
 # Market Data Analysis
 st.subheader('Market Data Analysis')
 market_data = fetch_market_data()
-fig = px.line(market_data, x='date', y='interestRate', title='Interest Rate Over Time')
-st.plotly_chart(fig)
+if market_data is not None:
+    fig = px.line(market_data, x='date', y='interestRate', title='Interest Rate Over Time')
+    st.plotly_chart(fig)
 
 # Machine Learning Predictions
 st.subheader('Machine Learning Predictions')
-predictions = predict_interest_rates(market_data)
-market_data['Predicted Interest Rate'] = predictions
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['interestRate'], mode='lines', name='Actual Rates'))
-fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['Predicted Interest Rate'], mode='lines', name='Predicted Rates'))
-st.plotly_chart(fig)
+if market_data is not None:
+    predictions = predict_interest_rates(market_data)
+    market_data['Predicted Interest Rate'] = predictions
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['interestRate'], mode='lines', name='Actual Rates'))
+    fig.add_trace(go.Scatter(x=market_data['date'], y=market_data['Predicted Interest Rate'], mode='lines', name='Predicted Rates'))
+    st.plotly_chart(fig)
 
 # Scenario Analysis
 st.subheader('Scenario Analysis')
