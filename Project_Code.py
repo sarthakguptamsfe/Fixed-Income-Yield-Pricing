@@ -50,70 +50,81 @@ def calculate_price(par, coupon_rate, ytm, n_periods, freq):
     return price
 
 # User inputs
-bond_type = st.selectbox("Bond Type:", ["Corporate", "Municipal", "Treasury", "Agency/GSE", "Fixed Rate"])
+bond_type = st.selectbox("Bond Type:", ["Corporate", "Treasury", "Municipal", "Agency/GSE", "Fixed Rate"])
 price = st.number_input("Price:", min_value=0.0, value=98.5, step=0.01)
 annual_coupon_rate = st.number_input("Annual Coupon Rate (%):", min_value=0.0, value=5.0, step=0.01)
 coupon_frequency = st.selectbox("Coupon Frequency:", ["Annual", "Semi-Annual", "Quarterly", "Monthly/GSE"])
 maturity_date = st.date_input("Maturity Date:", value=datetime.today().date() + relativedelta(years=10))
 callable = False
+error_message = ""
 if bond_type == "Corporate":
     callable = st.checkbox("Callable")
     if callable:
         # Default call date is set to one year before maturity date
         call_date = st.date_input("Call Date:", value=maturity_date - relativedelta(years=1))
         call_price = st.number_input("Call Price:", min_value=0.0, value=100.0, step=0.01)
+        if call_date >= maturity_date:
+            error_message = "Error: Call date must be earlier than maturity date."
+
 par_value = st.number_input("Par Value:", min_value=0.0, value=100.0, step=0.01)
 quantity = st.number_input("Quantity:", min_value=1, value=10, step=1)
 settlement_date = st.date_input("Settlement Date:", value=datetime.today().date())
 total_markup = st.number_input("Total Markup:", min_value=0.0, value=0.0, step=0.01)
+
+# Show error message if call date is invalid
+if error_message:
+    st.error(error_message)
 
 # Create columns for buttons
 col1, col2, _ = st.columns([2, 1, 6])  # Adjusted column widths
 
 # Calculate button
 if col1.button("Calculate"):
-    # Calculations
-    freq_dict = {"Annual": 1, "Semi-Annual": 2, "Quarterly": 4, "Monthly/GSE": 12}
-    freq = freq_dict[coupon_frequency]
-    n_periods = (maturity_date - settlement_date).days // (365 // freq)
-    
-    st.write(f"Coupon Payment: {annual_coupon_rate / 100 * par_value / freq}")
-    st.write(f"Number of Periods: {n_periods}")
-    
-    ytm = calculate_ytm(price, par_value, annual_coupon_rate, n_periods, freq)
-    ytc = None
-    if callable:
-        ytc = calculate_ytc(price, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq)
-    
-    accrued_interest = (datetime.now().date() - settlement_date).days / 365 * (annual_coupon_rate / 100) * par_value
-    total_cost = price * quantity + total_markup
-
-    st.write(f"**Accrued Interest:** ${accrued_interest:.2f}")
-    st.write(f"**Total Cost:** ${total_cost:.2f}")
-    if ytm is not None:
-        st.write(f"**Yield to Maturity (YTM):** {ytm:.2f}%")
+    if error_message:
+        st.error("Cannot calculate because of invalid call date.")
     else:
-        st.write("**Yield to Maturity (YTM): Calculation Error**")
-    if ytc is not None:
-        st.write(f"**Yield to Call (YTC):** {ytc:.2f}%")
-    else:
-        st.write("**Yield to Call (YTC): Not Applicable or Calculation Error**")
-    
-    # Yield curve plotting
-    prices = np.linspace(price - 10, price + 10, 50)
-    ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
-    ytc_values = [calculate_ytc(p, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq) for p in prices] if callable else None
+        # Calculations
+        freq_dict = {"Annual": 1, "Semi-Annual": 2, "Quarterly": 4, "Monthly/GSE": 12}
+        freq = freq_dict[coupon_frequency]
+        n_periods = (maturity_date - settlement_date).days // (365 // freq)
+        
+        st.write(f"Coupon Payment: {annual_coupon_rate / 100 * par_value / freq}")
+        st.write(f"Number of Periods: {n_periods}")
+        
+        ytm = calculate_ytm(price, par_value, annual_coupon_rate, n_periods, freq)
+        ytc = None
+        if callable:
+            ytc = calculate_ytc(price, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq)
+        
+        accrued_interest = (datetime.now().date() - settlement_date).days / 365 * (annual_coupon_rate / 100) * par_value
+        total_cost = price * quantity + total_markup
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=ytm_values, y=prices, mode='lines', name='Yield to Maturity'))
-    if ytc_values is not None:
-        fig.add_trace(go.Scatter(x=ytc_values, y=prices, mode='lines', name='Yield to Call', line=dict(dash='dash')))
-    fig.update_layout(
-        xaxis_title="Yield %",
-        yaxis_title="Price $",
-        legend_title="Yields"
-    )
-    st.plotly_chart(fig)
+        st.write(f"**Accrued Interest:** ${accrued_interest:.2f}")
+        st.write(f"**Total Cost:** ${total_cost:.2f}")
+        if ytm is not None:
+            st.write(f"**Yield to Maturity (YTM):** {ytm:.2f}%")
+        else:
+            st.write("**Yield to Maturity (YTM): Calculation Error**")
+        if ytc is not None:
+            st.write(f"**Yield to Call (YTC):** {ytc:.2f}%")
+        else:
+            st.write("**Yield to Call (YTC): Not Applicable or Calculation Error**")
+        
+        # Yield curve plotting
+        prices = np.linspace(price - 10, price + 10, 50)
+        ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
+        ytc_values = [calculate_ytc(p, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq) for p in prices] if callable else None
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=ytm_values, y=prices, mode='lines', name='Yield to Maturity'))
+        if ytc_values is not None:
+            fig.add_trace(go.Scatter(x=ytc_values, y=prices, mode='lines', name='Yield to Call', line=dict(dash='dash')))
+        fig.update_layout(
+            xaxis_title="Yield %",
+            yaxis_title="Price $",
+            legend_title="Yields"
+        )
+        st.plotly_chart(fig)
 
 # Reset button
 if col2.button("Reset"):
