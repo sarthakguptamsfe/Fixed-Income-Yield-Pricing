@@ -1,122 +1,143 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from fredapi import Fred
-import plotly.express as px
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
+import plotly.graph_objs as go
+from scipy.optimize import newton
 
-# Your FRED API key
-fred_api_key = 'ccb0a6057d3c865f4e10e7ec2c99826a'
+# Adding the image at the top
+image_url = "https://i.postimg.cc/6qXZCSmP/Screenshot-2024-05-27-at-4-54-01-PM.png"
+st.image(image_url, use_column_width=True)
 
-# Initialize FRED
-fred = Fred(api_key=fred_api_key)
+# Function to calculate yield to maturity using Newton's method
+def calculate_ytm(price, par,coupon_rate, n_periods, freq):
+    coupon = coupon_rate / 100 * par / freq
+    guess = 0.05  # initial guess for YTM
+    def bond_price(ytm):
+        return sum([coupon / (1 + ytm / freq) ** t for t in range(1, n_periods + 1)]) + par / (1 + ytm / freq) ** n_periods
 
-# Function to get bond data
-def get_bond_data(series_id, start_date, end_date):
-    try:
-        data = fred.get_series(series_id, start_date, end_date)
-        return data
-    except Exception as e:
-        st.error(f"Error fetching data for series ID {series_id}: {e}")
-        return None
+    def ytm_function(ytm):
+        return price - bond_price(ytm)
+    
+    ytm = newton(ytm_function, guess)
+    return ytm * 100 * freq
 
-# Function to calculate bond duration and convexity
-def calculate_duration_convexity(bond_price, coupon_rate, years_to_maturity, ytm):
-    coupon = coupon_rate * bond_price
-    cash_flows = [coupon / (1 + ytm) ** t for t in range(1, years_to_maturity + 1)]
-    cash_flows[-1] += bond_price / (1 + ytm) ** years_to_maturity
-    duration = sum(t * cf for t, cf in enumerate(cash_flows, 1)) / sum(cash_flows)
-    convexity = sum(t * (t + 1) * cf for t, cf in enumerate(cash_flows, 1)) / (sum(cash_flows) * (1 + ytm) ** 2)
-    return duration, convexity
+# Function to calculate yield to call using Newton's method
+def calculate_ytc(price, par, coupon_rate, call_price, call_date, settlement_date, freq):
+    coupon = coupon_rate / 100 * par / freq
+    n_periods_call = (call_date - settlement_date).days // (365 // freq)
+    guess = 0.05  # initial guess for YTC
+    
+    def bond_price(ytc):
+        return sum([coupon / (1 + ytc / freq) ** t for t in range(1, n_periods_call + 1)]) + call_price / (1 + ytc / freq) ** n_periods_call
 
-# Function to fetch spot rates
-def get_spot_rates():
-    try:
-        spot_rate_series_ids = ['DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20', 'DGS30']
-        spot_rates = {series_id: fred.get_series(series_id).iloc[-1] for series_id in spot_rate_series_ids}
-        return spot_rates
-    except Exception as e:
-        st.error(f"Error fetching spot rates: {e}")
-        return None
+    def ytc_function(ytc):
+        return price - bond_price(ytc)
+    
+    ytc = newton(ytc_function, guess)
+    return ytc * 100 * freq
 
-# Function to value bonds using spot rates
-def value_bond_using_spot_rate(cash_flows, spot_rates):
-    pv = 0
-    for t, cf in enumerate(cash_flows, 1):
-        spot_rate = spot_rates.get(f'DGS{t}', spot_rates.get('DGS10'))
-        pv += cf / (1 + spot_rate) ** t
-    return pv
+# Function to calculate bond price from yield to maturity
+def calculate_price(par, coupon_rate, ytm, n_periods, freq):
+    coupon = coupon_rate / 100 * par / freq
+    cash_flows = [coupon] * n_periods + [par]
+    discount_factors = [(1 + ytm / (100 * freq)) ** (-i) for i in range(1, n_periods + 2)]
+    price = sum(cf * df for cf, df in zip(cash_flows, discount_factors))
+    return price
 
-# Streamlit App
-st.title('Advanced Bond Analysis App')
+# User inputs
+bond_type = st.selectbox("Bond Type:", ["Corporate", "Municipal", "Treasury", "Agency/GSE", "Fixed Rate"])
+price = st.number_input("Price:", min_value=0.0, value=98.5, step=0.01)
+annual_coupon_rate = st.number_input("Annual Coupon Rate (%):", min_value=0.0, value=5.0, step=0.01)
+coupon_frequency = st.selectbox("Coupon Frequency:", ["Annual", "Semi-Annual", "Quarterly", "Monthly/GSE"])
+maturity_date = st.date_input("Maturity Date:", value=datetime.today().date() + relativedelta(years=10))
+callable = False
+if bond_type == "Corporate":
+    callable = st.checkbox("Callable")
+    if callable:
+        call_date = st.date_input("Call Date:", value=datetime.today().date() + relativedelta(years=5))
+        call_price = st.number_input("Call Price:", min_value=0.0, value=100.0, step=0.01)
+par_value = st.number_input("Par Value:", min_value=0.0, value=100.0, step=0.01)
+quantity = st.number_input("Quantity:", min_value=1, value=10, step=1)
+settlement_date = st.date_input("Settlement Date:", value=datetime.today().date())
+total_markup = st.number_input("Total Markup:", min_value=0.0, value=0.0, step=0.01)
 
-# Bond Portfolio Management
-st.subheader('Bond Portfolio Management')
-num_bonds = st.slider('Select number of bonds (up to 10):', 1, 10, 1)
+# Calculate button
+if st.button("Calculate"):
+    # Calculations
+    freq_dict = {"Annual": 1, "Semi-Annual": 2, "Quarterly": 4, "Monthly/GSE": 12}
+    freq = freq_dict[coupon_frequency]
+    n_periods = (maturity_date - settlement_date).days // (365 // freq)
+    
+    st.write(f"Coupon Payment: {annual_coupon_rate / 100 * par_value / freq}")
+    st.write(f"Number of Periods: {n_periods}")
+    
+    ytm = calculate_ytm(price, par_value, annual_coupon_rate, n_periods, freq)
+    ytc = None
+    if callable:
+        ytc = calculate_ytc(price, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq)
+    
+    accrued_interest = (datetime.now().date() - settlement_date).days / 365 * (annual_coupon_rate / 100) * par_value
+    total_cost = price * quantity + total_markup
 
-bonds = []
+    st.write(f"**Accrued Interest:** ${accrued_interest:.2f}")
+    st.write(f"**Total Cost:** ${total_cost:.2f}")
+    if ytm is not None:
+        st.write(f"**Yield to Maturity (YTM):** {ytm:.2f}%")
+    else:
+        st.write("**Yield to Maturity (YTM): Calculation Error**")
+    if ytc is not None:
+        st.write(f"**Yield to Call (YTC):** {ytc:.2f}%")
+    else:
+        st.write("**Yield to Call (YTC): Not Applicable or Calculation Error**")
+    
+    # Yield curve plotting
+    prices = np.linspace(price - 10, price + 10, 50)
+    ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
+    ytc_values = [calculate_ytc(p, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq) for p in prices] if callable else None
 
-for i in range(num_bonds):
-    st.write(f'**Bond {i+1}**')
-    bond_name = st.text_input(f'Enter Bond Name {i+1} (Series ID):', key=f'bond_name_{i}')
-    purchase_date = st.date_input(f'Enter Purchase Date for Bond {i+1}:', key=f'purchase_date_{i}')
-    maturity_date = st.date_input(f'Enter Maturity Date for Bond {i+1}:', key=f'maturity_date_{i}')
-    coupon_rate = st.number_input(f'Enter Coupon Rate for Bond {i+1}:', value=0.05, key=f'coupon_rate_{i}')
-    bonds.append({
-        'Bond Name': bond_name,
-        'Purchase Date': purchase_date,
-        'Maturity Date': maturity_date,
-        'Coupon Rate': coupon_rate
-    })
-
-if st.button('Calculate Portfolio Metrics'):
-    # Fetch Spot Rates
-    spot_rates = get_spot_rates()
-
-    # Calculate Metrics and Value Bonds
-    portfolio_value = 0
-    portfolio_duration = 0
-    portfolio_convexity = 0
-
-    for bond in bonds:
-        bond_data = get_bond_data(bond['Bond Name'], bond['Purchase Date'], bond['Maturity Date'])
-        if bond_data is not None:
-            bond_price = bond_data.iloc[-1]
-            years_to_maturity = (bond['Maturity Date'] - bond['Purchase Date']).days / 365
-            ytm = bond_data.mean()
-            duration, convexity = calculate_duration_convexity(bond_price, bond['Coupon Rate'], int(years_to_maturity), ytm)
-            cash_flows = [bond['Coupon Rate'] * bond_price for _ in range(int(years_to_maturity))]
-            cash_flows[-1] += bond_price
-            bond_value = value_bond_using_spot_rate(cash_flows, spot_rates)
-            portfolio_value += bond_value
-            portfolio_duration += duration
-            portfolio_convexity += convexity
-            bond.update({'Duration': duration, 'Convexity': convexity, 'Value': bond_value})
-
-    # Display Portfolio Metrics
-    st.write(f'Total Portfolio Value: ${portfolio_value:.2f}')
-    st.write(f'Total Portfolio Duration: {portfolio_duration:.2f}')
-    st.write(f'Total Portfolio Convexity: {portfolio_convexity:.2f}')
-
-    # Interactive Visualizations
-    st.subheader('Interactive Visualizations')
-    portfolio_df = pd.DataFrame(bonds)
-    fig = px.bar(portfolio_df, x='Bond Name', y='Value', title='Bond Values')
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=prices, y=ytm_values, mode='lines', name='Yield to Maturity'))
+    if ytc_values is not None:
+        fig.add_trace(go.Scatter(x=prices, y=ytc_values, mode='lines', name='Yield to Call', line=dict(dash='dash')))
+    fig.update_layout(
+        title="Yield Curve",
+        xaxis_title="Price",
+        yaxis_title="Yield %",
+        legend_title="Yields"
+    )
     st.plotly_chart(fig)
-    fig = px.histogram(portfolio_df, x='Duration', title='Duration Distribution')
-    st.plotly_chart(fig)
 
-    # Custom Reports
-    st.subheader('Custom Reports')
-    if st.button('Generate Report'):
-        report = f"""
-        Bond Analysis Report
-        ====================
-        Total Portfolio Value: ${portfolio_value:.2f}
-        Total Portfolio Duration: {portfolio_duration:.2f}
-        Total Portfolio Convexity: {portfolio_convexity:.2f}
-        
-        Bond Details
-        ------------
-        {portfolio_df.to_string(index=False)}
-        """
-        st.download_button('Download Report', data=report, file_name='bond_analysis_report.txt', mime='text/plain')
+# Reset button
+if st.button("Reset"):
+    st.experimental_rerun()
+
+# About section
+st.markdown("""
+### Understanding Bond Prices and Yields:
+
+The relationship between bond prices and yields is fundamental to bond investing. Here's a closer look at how they interact:
+
+#### Key Concepts:
+
+- **Inverse Relationship**: Bond prices and yields generally move in opposite directions. When a bond's price increases, its yield decreases, and vice versa.
+- **Yield to Maturity (YTM)**: This is the total return expected on a bond if held until maturity. It accounts for the bond's current market price, par value, coupon interest rate, and time to maturity.
+- **Yield to Call (YTC)**: For callable bonds, this is the yield assuming the bond is called (redeemed by the issuer) before its maturity date. It considers the call price and the time until the call date.
+- **Yield to Worst (YTW)**: This is the lowest yield an investor can receive if the bond is called or matures early. It is the minimum between YTM and YTC.
+
+#### How to Use the Calculator:
+
+1. **Enter Bond Details**: Input the bond's price, par value, coupon rate, and other relevant details.
+2. **Calculate Yields**: The calculator computes the YTM and YTC based on your inputs.
+3. **Analyze the Chart**: The interactive chart shows how bond prices and yields relate. Hover over the chart to see specific bond and price information that updates dynamically.
+
+#### Practical Insights:
+
+- **Investment Decisions**: Understanding the relationship between bond prices and yields helps in making informed investment decisions.
+- **Interest Rate Movements**: Keep an eye on interest rate trends, as they significantly impact bond prices and yields.
+- **Bond Characteristics**: Different bonds (corporate, municipal, treasury) have unique features and risks. Consider these when analyzing yields.
+
+Use this calculator to explore and understand how changes in bond prices affect yields, helping you optimize your bond investment strategy.
+""")
+

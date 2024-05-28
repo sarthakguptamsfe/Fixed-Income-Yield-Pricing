@@ -1,9 +1,9 @@
 streamlit
-requests
-pandas
-numpy
-matplotlib
-scikit-learn
+numpy 
+pandas 
+matplotlib 
+python-dateutil
+numpy_financial
 plotly
-fredapi
-logging
+datetime
+python-dateutil
