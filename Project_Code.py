@@ -65,7 +65,7 @@ settlement_date = st.date_input("Settlement Date:", value=datetime.today().date(
 total_markup = st.number_input("Total Markup:", min_value=0.0, value=0.0, step=0.01)
 
 # Create columns for buttons
-col1, col2 = st.columns(2)
+col1, col2, _ = st.columns([1, 1, 6])  # Adjusted column widths
 
 # Calculate button
 if col1.button("Calculate"):
