@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import scipy
 from dateutil.relativedelta import relativedelta
 import plotly.graph_objs as go
 from scipy.optimize import newton
@@ -12,9 +11,10 @@ image_url = "https://i.postimg.cc/9XRnzD6S/Screenshot-2024-05-27-at-5-20-28-PM.p
 st.image(image_url, use_column_width=True)
 
 # Function to calculate yield to maturity using Newton's method
-def calculate_ytm(price, par,coupon_rate, n_periods, freq):
+def calculate_ytm(price, par, coupon_rate, n_periods, freq):
     coupon = coupon_rate / 100 * par / freq
     guess = 0.05  # initial guess for YTM
+    
     def bond_price(ytm):
         return sum([coupon / (1 + ytm / freq) ** t for t in range(1, n_periods + 1)]) + par / (1 + ytm / freq) ** n_periods
 
@@ -94,20 +94,20 @@ if st.button("Calculate"):
         st.write("**Yield to Call (YTC): Not Applicable or Calculation Error**")
     
     # Yield curve plotting
-prices = np.linspace(price - 10, price + 10, 50)
-ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
-ytc_values = [calculate_ytc(p, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq) for p in prices] if callable else None
+    prices = np.linspace(price - 10, price + 10, 50)
+    ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
+    ytc_values = [calculate_ytc(p, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq) for p in prices] if callable else None
 
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=ytm_values, y=prices, mode='lines', name='Yield to Maturity'))
-if ytc_values is not None:
-    fig.add_trace(go.Scatter(x=ytc_values, y=prices, mode='lines', name='Yield to Call', line=dict(dash='dash')))
-fig.update_layout(
-    xaxis_title="Yield %",
-    yaxis_title="Price $",
-    legend_title="Yields"
-)
-st.plotly_chart(fig)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=ytm_values, y=prices, mode='lines', name='Yield to Maturity'))
+    if ytc_values is not None:
+        fig.add_trace(go.Scatter(x=ytc_values, y=prices, mode='lines', name='Yield to Call', line=dict(dash='dash')))
+    fig.update_layout(
+        xaxis_title="Yield %",
+        yaxis_title="Price $",
+        legend_title="Yields"
+    )
+    st.plotly_chart(fig)
 
 # Reset button
 if st.button("Reset"):
@@ -140,4 +140,3 @@ The relationship between bond prices and yields is fundamental to bond investing
 
 Use this calculator to explore and understand how changes in bond prices affect yields, helping you optimize your bond investment strategy.
 """)
-
