@@ -8,3 +8,5 @@ plotly
 datetime
 python-dateutil
 scipy
+base64
+fpdf
