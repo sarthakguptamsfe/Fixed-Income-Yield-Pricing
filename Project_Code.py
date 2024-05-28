@@ -84,7 +84,7 @@ def calculate_key_rate_duration(price, par, coupon_rate, ytm, n_periods, freq):
         key_rate_duration = (price_down - price_up) / (2 * price * shock)
         key_rate_durations.append(key_rate_duration)
     
-    return np.mean(key_rate_durations
+    return np.mean(key_rate_durations)
 
 # User inputs
 bond_type = st.selectbox("Bond Type:", ["Corporate", "Treasury", "Municipal", "Agency/GSE", "Fixed Rate"])
