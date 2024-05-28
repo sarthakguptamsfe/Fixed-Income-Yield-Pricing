@@ -2,12 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import scipy
 from dateutil.relativedelta import relativedelta
 import plotly.graph_objs as go
 from scipy.optimize import newton
 
 # Adding the image at the top
-image_url = "https://i.postimg.cc/6qXZCSmP/Screenshot-2024-05-27-at-4-54-01-PM.png"
+image_url = "https://i.postimg.cc/9XRnzD6S/Screenshot-2024-05-27-at-5-20-28-PM.png"
 st.image(image_url, use_column_width=True)
 
 # Function to calculate yield to maturity using Newton's method
