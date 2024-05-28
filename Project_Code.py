@@ -105,7 +105,7 @@ def debug_convexity(price, par, coupon_rate, ytm, n_periods, freq):
         discount_factor = (1 + ytm / (100 * freq)) ** (t + 2)
         term_convexity = (cash_flow * t * (t + 1)) / discount_factor
         convexity_sum += term_convexity
-        print(f"t={t}, cash_flow={cash_flow}, term_convexity={term_convexity}, convexity_sum={convexity_sum}")
+        print(f"t={t}, cash_flow={cash_flow}, discount_factor={discount_factor}, term_convexity={term_convexity}, convexity_sum={convexity_sum}")
     convexity = convexity_sum / (price * (1 + ytm / (100 * freq)) ** 2 * freq ** 2)
     print(f"convexity_sum={convexity_sum}, convexity={convexity}")
     return convexity
