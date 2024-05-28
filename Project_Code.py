@@ -6,6 +6,8 @@ from dateutil.relativedelta import relativedelta
 import plotly.graph_objs as go
 from scipy.optimize import newton
 
+st.set_page_config(page_title="Fixed Income: Bond Price & Yield Calculator")
+
 # Adding the image at the top
 image_url = "https://i.postimg.cc/9XRnzD6S/Screenshot-2024-05-27-at-5-20-28-PM.png"
 st.image(image_url, use_column_width=True)
