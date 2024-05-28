@@ -94,20 +94,20 @@ if st.button("Calculate"):
         st.write("**Yield to Call (YTC): Not Applicable or Calculation Error**")
     
     # Yield curve plotting
-    prices = np.linspace(price - 10, price + 10, 50)
-    ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
-    ytc_values = [calculate_ytc(p, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq) for p in prices] if callable else None
+prices = np.linspace(price - 10, price + 10, 50)
+ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
+ytc_values = [calculate_ytc(p, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq) for p in prices] if callable else None
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=prices, y=ytm_values, mode='lines', name='Yield to Maturity'))
-    if ytc_values is not None:
-        fig.add_trace(go.Scatter(x=prices, y=ytc_values, mode='lines', name='Yield to Call', line=dict(dash='dash')))
-    fig.update_layout(
-        xaxis_title="Price",
-        yaxis_title="Yield %",
-        legend_title="Yields"
-    )
-    st.plotly_chart(fig)
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=ytm_values, y=prices, mode='lines', name='Yield to Maturity'))
+if ytc_values is not None:
+    fig.add_trace(go.Scatter(x=ytc_values, y=prices, mode='lines', name='Yield to Call', line=dict(dash='dash')))
+fig.update_layout(
+    xaxis_title="Yield %",
+    yaxis_title="Price $",
+    legend_title="Yields"
+)
+st.plotly_chart(fig)
 
 # Reset button
 if st.button("Reset"):
