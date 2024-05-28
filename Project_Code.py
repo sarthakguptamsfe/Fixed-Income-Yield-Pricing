@@ -89,9 +89,9 @@ def calculate_convexity(price, par, coupon_rate, ytm, n_periods, freq):
     coupon = coupon_rate / 100 * par / freq
     convexity = 0
     for t in range(1, n_periods + 1):
-        convexity += (coupon / (1 + ytm / freq) ** t) * (t * (t + 1)) / (1 + ytm / freq) ** 2
-    convexity += (par / (1 + ytm / freq) ** n_periods) * (n_periods * (n_periods + 1)) / (1 + ytm / freq) ** 2
-    convexity = convexity / (price * freq ** 2)
+        convexity += (coupon / (1 + ytm / freq) ** t) * (t * (t + 1))
+    convexity += (par / (1 + ytm / freq) ** n_periods) * (n_periods * (n_periods + 1))
+    convexity = convexity / ((price * (1 + ytm / freq) ** 2) * freq ** 2)
     return convexity
 
 # User inputs
@@ -157,7 +157,7 @@ if col1.button("Calculate"):
             
             accrued_interest = (datetime.now().date() - settlement_date).days / 365 * (annual_coupon_rate / 100) * par_value
             total_cost = price * quantity + total_markup
-            
+
             st.write(f"Accrued Interest: ${accrued_interest:.2f}")
             st.write(f"Total Cost: ${total_cost:.2f}")
             st.write(f"Yield to Maturity (YTM): {ytm:.2f}%")
@@ -171,12 +171,16 @@ if col1.button("Calculate"):
             # Plotting the graph
             prices = np.linspace(price - 10, price + 10, 50)
             ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
+            ytc_values = [calculate_ytc(p, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq) for p in prices] if callable else None
+
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=ytm_values, y=prices, mode='lines', name='Price vs. Yield'))
+            fig.add_trace(go.Scatter(x=ytm_values, y=prices, mode='lines', name='Yield to Maturity'))
+            if ytc_values is not None:
+                fig.add_trace(go.Scatter(x=ytc_values, y=prices, mode='lines', name='Yield to Call', line=dict(dash='dash')))
             fig.update_layout(
                 xaxis_title="Yield (%)",
-                yaxis_title="Price",
-                legend_title="Duration"
+                yaxis_title="Price $",
+                legend_title="Yields"
             )
             st.plotly_chart(fig)
 
