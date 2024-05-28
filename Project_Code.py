@@ -92,7 +92,7 @@ def calculate_convexity(price, par, coupon_rate, ytm, n_periods, freq):
         convexity += (coupon / (1 + ytm / freq) ** t) * (t * (t + 1))
     convexity += (par / (1 + ytm / freq) ** n_periods) * (n_periods * (n_periods + 1))
     convexity = convexity / ((price * (1 + ytm / freq) ** 2) * freq ** 2)
-    return convexity
+    return convexity / 100
 
 # User inputs
 bond_type = st.selectbox("Bond Type:", ["Corporate", "Treasury", "Municipal", "Agency/GSE", "Fixed Rate"])
@@ -157,7 +157,7 @@ if col1.button("Calculate"):
             
             accrued_interest = (datetime.now().date() - settlement_date).days / 365 * (annual_coupon_rate / 100) * par_value
             total_cost = price * quantity + total_markup
-            
+
             st.write(f"Accrued Interest: ${accrued_interest:.2f}")
             st.write(f"Total Cost: ${total_cost:.2f}")
             st.write(f"Yield to Maturity (YTM): {ytm:.2f}%")
