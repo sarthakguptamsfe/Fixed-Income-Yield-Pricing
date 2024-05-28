@@ -103,7 +103,6 @@ if st.button("Calculate"):
     if ytc_values is not None:
         fig.add_trace(go.Scatter(x=prices, y=ytc_values, mode='lines', name='Yield to Call', line=dict(dash='dash')))
     fig.update_layout(
-        title="Yield Curve",
         xaxis_title="Price",
         yaxis_title="Yield %",
         legend_title="Yields"
