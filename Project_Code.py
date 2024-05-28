@@ -59,7 +59,8 @@ callable = False
 if bond_type == "Corporate":
     callable = st.checkbox("Callable")
     if callable:
-        call_date = st.date_input("Call Date:", value=datetime.today().date() + relativedelta(years=5))
+        # Default call date is set to one year before maturity date
+        call_date = st.date_input("Call Date:", value=maturity_date - relativedelta(years=1))
         call_price = st.number_input("Call Price:", min_value=0.0, value=100.0, step=0.01)
 par_value = st.number_input("Par Value:", min_value=0.0, value=100.0, step=0.01)
 quantity = st.number_input("Quantity:", min_value=1, value=10, step=1)
