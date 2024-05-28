@@ -12,6 +12,12 @@ st.set_page_config(page_title="Fixed Income: Bond Price & Yield Calculator")
 image_url = "https://i.postimg.cc/9XRnzD6S/Screenshot-2024-05-27-at-5-20-28-PM.png"
 st.image(image_url, use_column_width=True)
 
+# Explanation of par value
+st.markdown("""
+**Par Value**: The amount of money that the bond issuer agrees to pay the bondholder upon maturity. 
+This value is the basis on which interest (coupon payments) is calculated.
+""")
+
 # Function to calculate yield to maturity using Newton's method
 def calculate_ytm(price, par, coupon_rate, n_periods, freq):
     coupon = coupon_rate / 100 * par / freq
@@ -49,23 +55,15 @@ def calculate_price(par, coupon_rate, ytm, n_periods, freq):
     price = sum(cf * df for cf, df in zip(cash_flows, discount_factors))
     return price
 
-# Function to calculate bond price from yield to call
-def calculate_price_callable(par, coupon_rate, ytm, call_price, n_periods, freq, call_date, settlement_date):
-    coupon = coupon_rate / 100 * par / freq
-    n_periods_call = (call_date - settlement_date).days // (365 // freq)
-    cash_flows = [coupon] * n_periods_call + [call_price]
-    discount_factors = [(1 + ytm / (100 * freq)) ** (-i) for i in range(1, n_periods_call + 2)]
-    price = sum(cf * df for cf, df in zip(cash_flows, discount_factors))
-    return price
-
 # Function to calculate Macaulay duration
 def calculate_macaulay_duration(par, coupon_rate, ytm, n_periods, freq):
     coupon = coupon_rate / 100 * par / freq
     cash_flows = [coupon] * n_periods + [par]
     discount_factors = [(1 + ytm / (100 * freq)) ** (-i) for i in range(1, n_periods + 2)]
     present_values = [cf * df for cf, df in zip(cash_flows, discount_factors)]
-    duration = sum(t * pv for t, pv in enumerate(present_values, start=1)) / sum(present_values)
-    return duration / freq
+    durations = [t * pv for t, pv in enumerate(present_values, start=1)]
+    macaulay_duration = sum(durations) / sum(present_values)
+    return macaulay_duration / freq
 
 # Function to calculate modified duration
 def calculate_modified_duration(macaulay_duration, ytm, freq):
@@ -85,6 +83,16 @@ def calculate_key_rate_duration(price, par, coupon_rate, ytm, n_periods, freq):
         key_rate_durations.append(key_rate_duration)
     
     return np.mean(key_rate_durations)
+
+# Function to calculate convexity
+def calculate_convexity(price, par, coupon_rate, ytm, n_periods, freq):
+    coupon = coupon_rate / 100 * par / freq
+    convexity = 0
+    for t in range(1, n_periods + 1):
+        convexity += (coupon / (1 + ytm / freq) ** t) * (t * (t + 1)) / (1 + ytm / freq) ** 2
+    convexity += (par / (1 + ytm / freq) ** n_periods) * (n_periods * (n_periods + 1)) / (1 + ytm / freq) ** 2
+    convexity = convexity / (price * freq ** 2)
+    return convexity
 
 # User inputs
 bond_type = st.selectbox("Bond Type:", ["Corporate", "Treasury", "Municipal", "Agency/GSE", "Fixed Rate"])
@@ -126,56 +134,51 @@ if col1.button("Calculate"):
         freq = freq_dict[coupon_frequency]
         n_periods = (maturity_date - settlement_date).days // (365 // freq)
         
-        st.write(f"Coupon Payment: {annual_coupon_rate / 100 * par_value / freq}")
-        st.write(f"Number of Periods: {n_periods}")
-        
-        ytm = calculate_ytm(price, par_value, annual_coupon_rate, n_periods, freq)
-        ytc = None
-        if callable:
-            ytc = calculate_ytc(price, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq)
-        
-        macaulay_duration = calculate_macaulay_duration(par_value, annual_coupon_rate, ytm, n_periods, freq)
-        if duration_type == "Macaulay":
-            duration = macaulay_duration
-        elif duration_type == "Modified":
-            duration = calculate_modified_duration(macaulay_duration, ytm, freq)
-        elif duration_type == "Key Rate":
-            duration = calculate_key_rate_duration(price, par_value, annual_coupon_rate, ytm, n_periods, freq)
+        if n_periods <= 0:
+            st.error("Error: Settlement date must be before the maturity date.")
         else:
-            duration = None
-        
-        accrued_interest = (datetime.now().date() - settlement_date).days / 365 * (annual_coupon_rate / 100) * par_value
-        total_cost = price * quantity + total_markup
-
-        st.write(f"**Accrued Interest:** ${accrued_interest:.2f}")
-        st.write(f"**Total Cost:** ${total_cost:.2f}")
-        if ytm is not None:
-            st.write(f"**Yield to Maturity (YTM):** {ytm:.2f}%")
-        else:
-            st.write("**Yield to Maturity (YTM): Calculation Error**")
-        if ytc is not None:
-            st.write(f"**Yield to Call (YTC):** {ytc:.2f}%")
-        else:
-            st.write("**Yield to Call (YTC): Not Applicable or Calculation Error**")
-        if duration is not None:
-            st.write(f"**{duration_type} Duration:** {duration:.2f} years")
-        
-        # Yield curve plotting
-        yields = np.linspace(ytm - 0.5, ytm + 0.5, 100) / 100  # Yield in percentage
-        prices = [calculate_price(par_value, annual_coupon_rate, y * 100, n_periods, freq) for y in yields]
-
-        # Duration Plot
-        fig_duration = go.Figure()
-        fig_duration.add_trace(go.Scatter(x=yields * 100, y=prices, mode='lines', name='Price vs. Yield (Non-callable)'))
-        if callable:
-            prices_callable = [calculate_price_callable(par_value, annual_coupon_rate, y * 100, call_price, n_periods, freq, call_date, settlement_date) for y in yields]
-            fig_duration.add_trace(go.Scatter(x=yields * 100, y=prices_callable, mode='lines', name='Price vs. Yield (Callable)', line=dict(dash='dash')))
-        fig_duration.update_layout(
-            xaxis_title="Yield (%)",
-            yaxis_title="Price ($)",
-            legend_title="Duration"
-        )
-        st.plotly_chart(fig_duration)
+            st.write(f"Coupon Payment: {annual_coupon_rate / 100 * par_value / freq}")
+            st.write(f"Number of Periods: {n_periods}")
+            
+            ytm = calculate_ytm(price, par_value, annual_coupon_rate, n_periods, freq)
+            ytc = None
+            if callable:
+                ytc = calculate_ytc(price, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq)
+            
+            macaulay_duration = calculate_macaulay_duration(par_value, annual_coupon_rate, ytm, n_periods, freq)
+            if duration_type == "Macaulay":
+                duration = macaulay_duration
+            elif duration_type == "Modified":
+                duration = calculate_modified_duration(macaulay_duration, ytm, freq)
+            elif duration_type == "Key Rate":
+                duration = calculate_key_rate_duration(price, par_value, annual_coupon_rate, ytm, n_periods, freq)
+            
+            convexity = calculate_convexity(price, par_value, annual_coupon_rate, ytm, n_periods, freq)
+            
+            accrued_interest = (datetime.now().date() - settlement_date).days / 365 * (annual_coupon_rate / 100) * par_value
+            total_cost = price * quantity + total_markup
+            
+            st.write(f"Accrued Interest: ${accrued_interest:.2f}")
+            st.write(f"Total Cost: ${total_cost:.2f}")
+            st.write(f"Yield to Maturity (YTM): {ytm:.2f}%")
+            if callable:
+                st.write(f"Yield to Call (YTC): {ytc:.2f}%")
+            else:
+                st.write("Yield to Call (YTC): Not Applicable or Calculation Error")
+            st.write(f"Macaulay Duration: {macaulay_duration:.2f} years")
+            st.write(f"Convexity: {convexity:.2f}")
+            
+            # Plotting the graph
+            prices = np.linspace(price - 10, price + 10, 50)
+            ytm_values = [calculate_ytm(p, par_value, annual_coupon_rate, n_periods, freq) for p in prices]
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=ytm_values, y=prices, mode='lines', name='Price vs. Yield'))
+            fig.update_layout(
+                xaxis_title="Yield (%)",
+                yaxis_title="Price",
+                legend_title="Duration"
+            )
+            st.plotly_chart(fig)
 
 # Reset button
 if col2.button("Reset"):
@@ -208,4 +211,3 @@ The relationship between bond prices and yields is fundamental to bond investing
 
 Use this calculator to explore and understand how changes in bond prices affect yields, helping you optimize your bond investment strategy.
 """)
-
