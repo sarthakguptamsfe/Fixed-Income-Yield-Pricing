@@ -73,15 +73,18 @@ def calculate_modified_duration(macaulay_duration, ytm, freq):
 
 # Function to calculate key rate duration
 def calculate_key_rate_duration(price, par, coupon_rate, ytm, n_periods, freq):
+    shock = 0.01  # 1% interest rate shock
     key_rate_durations = []
-    original_price = calculate_price(par, coupon_rate, ytm, n_periods, freq)
-    for key_rate in range(1, n_periods + 1):
-        shock = 0.01  # 1% interest rate shock
-        new_ytm = ytm + shock
-        new_price = calculate_price(par, coupon_rate, new_ytm, n_periods, freq)
-        key_rate_duration = - (new_price - original_price) / (original_price * shock)
+
+    for period in range(1, n_periods + 1):
+        bumped_ytm = ytm / 100 + shock
+        price_up = calculate_price(par, coupon_rate, bumped_ytm * 100, n_periods, freq)
+        price_down = calculate_price(par, coupon_rate, (ytm / 100 - shock) * 100, n_periods, freq)
+        
+        key_rate_duration = (price_down - price_up) / (2 * price * shock)
         key_rate_durations.append(key_rate_duration)
-    return np.mean(key_rate_durations)
+    
+    return np.mean(key_rate_durations
 
 # User inputs
 bond_type = st.selectbox("Bond Type:", ["Corporate", "Treasury", "Municipal", "Agency/GSE", "Fixed Rate"])
