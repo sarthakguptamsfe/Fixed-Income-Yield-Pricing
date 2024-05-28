@@ -64,8 +64,11 @@ quantity = st.number_input("Quantity:", min_value=1, value=10, step=1)
 settlement_date = st.date_input("Settlement Date:", value=datetime.today().date())
 total_markup = st.number_input("Total Markup:", min_value=0.0, value=0.0, step=0.01)
 
+# Create columns for buttons
+col1, col2 = st.columns(2)
+
 # Calculate button
-if st.button("Calculate"):
+if col1.button("Calculate"):
     # Calculations
     freq_dict = {"Annual": 1, "Semi-Annual": 2, "Quarterly": 4, "Monthly/GSE": 12}
     freq = freq_dict[coupon_frequency]
@@ -110,7 +113,7 @@ if st.button("Calculate"):
     st.plotly_chart(fig)
 
 # Reset button
-if st.button("Reset"):
+if col2.button("Reset"):
     st.experimental_rerun()
 
 # About section
