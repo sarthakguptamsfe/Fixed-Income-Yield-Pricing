@@ -90,35 +90,10 @@ def calculate_convexity(price, par, coupon_rate, ytm, n_periods, freq):
     convexity_sum = 0
     for t in range(1, n_periods + 1):
         cash_flow = coupon if t < n_periods else coupon + par
-        discount_factor = (1 + ytm / (100 * freq)) ** (t + 2)
-        term_convexity = (cash_flow * t * (t + 1)) / discount_factor
+        term_convexity = (cash_flow * t * (t + 1)) / ((1 + ytm / (100 * freq)) ** (t + 2))
         convexity_sum += term_convexity
-    convexity = convexity_sum / (price * (1 + ytm / (100 * freq)) ** 2 * freq ** 2)
+    convexity = convexity_sum / (price * freq ** 2)
     return convexity
-
-# Function to debug convexity
-def debug_convexity(price, par, coupon_rate, ytm, n_periods, freq):
-    coupon = coupon_rate / 100 * par / freq
-    convexity_sum = 0
-    for t in range(1, n_periods + 1):
-        cash_flow = coupon if t < n_periods else coupon + par
-        discount_factor = (1 + ytm / (100 * freq)) ** (t + 2)
-        term_convexity = (cash_flow * t * (t + 1)) / discount_factor
-        convexity_sum += term_convexity
-        print(f"t={t}, cash_flow={cash_flow}, discount_factor={discount_factor}, term_convexity={term_convexity}, convexity_sum={convexity_sum}")
-    convexity = convexity_sum / (price * (1 + ytm / (100 * freq)) ** 2 * freq ** 2)
-    print(f"convexity_sum={convexity_sum}, convexity={convexity}")
-    return convexity
-
-# Test the debug function
-price = 98.5
-par = 100
-coupon_rate = 5.0
-ytm = 5.2
-n_periods = 10
-freq = 2  # Semi-Annual
-
-debug_convexity(price, par, coupon_rate, ytm, n_periods, freq)
 
 # User inputs
 bond_type = st.selectbox("Bond Type:", ["Corporate", "Treasury", "Municipal", "Agency/GSE", "Fixed Rate"])
@@ -191,7 +166,7 @@ if col1.button("Calculate"):
                 st.write(f"Yield to Call (YTC): {ytc:.2f}%")
             else:
                 st.write("Yield to Call (YTC): Not Applicable or Calculation Error")
-            st.write(f"Macaulay Duration: {macaulay_duration:.2f} years")
+            st.write(f"Duration ({duration_type}): {duration:.2f} years")
             st.write(f"Convexity: {convexity:.2f}")
             
             # Plotting the graph
