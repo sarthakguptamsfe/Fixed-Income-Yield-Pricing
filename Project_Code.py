@@ -93,7 +93,7 @@ def calculate_convexity(price, par, coupon_rate, ytm, n_periods, freq):
         term_convexity = (cash_flow * t * (t + 1)) / ((1 + ytm / (100 * freq)) ** (t + 2))
         convexity_sum += term_convexity
     convexity = convexity_sum / (price * freq ** 2)
-    return convexity
+    return convexity/10
 
 # User inputs
 bond_type = st.selectbox("Bond Type:", ["Corporate", "Treasury", "Municipal", "Agency/GSE", "Fixed Rate"])
@@ -167,7 +167,7 @@ if col1.button("Calculate"):
             else:
                 st.write("Yield to Call (YTC): Not Applicable or Calculation Error")
             st.write(f"Duration ({duration_type}): {duration:.2f} years")
-            st.write(f"Convexity: {convexity:.2f}")
+            st.write(f"Convexity: {convexity:.2f} years")
             
             # Plotting the graph
             prices = np.linspace(price - 10, price + 10, 50)
