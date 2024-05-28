@@ -91,7 +91,7 @@ def calculate_convexity(price, par, coupon_rate, ytm, n_periods, freq):
     for t in range(1, n_periods + 1):
         convexity += (coupon / (1 + ytm / freq) ** t) * (t * (t + 1))
     convexity += (par / (1 + ytm / freq) ** n_periods) * (n_periods * (n_periods + 1))
-    convexity = convexity / ((price * (1 + ytm / freq) ** 2) * freq ** 2)
+    convexity = convexity / (price * (1 + ytm / freq) ** 2) / freq ** 2
     return convexity
 
 # User inputs
