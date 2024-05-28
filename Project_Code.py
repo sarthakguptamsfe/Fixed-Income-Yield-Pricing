@@ -12,12 +12,6 @@ st.set_page_config(page_title="Fixed Income: Bond Price & Yield Calculator")
 image_url = "https://i.postimg.cc/9XRnzD6S/Screenshot-2024-05-27-at-5-20-28-PM.png"
 st.image(image_url, use_column_width=True)
 
-# Explanation of par value
-st.markdown("""
-**Par Value**: The amount of money that the bond issuer agrees to pay the bondholder upon maturity. 
-This value is the basis on which interest (coupon payments) is calculated.
-""")
-
 # Function to calculate yield to maturity using Newton's method
 def calculate_ytm(price, par, coupon_rate, n_periods, freq):
     coupon = coupon_rate / 100 * par / freq
@@ -92,8 +86,20 @@ def calculate_convexity(price, par, coupon_rate, ytm, n_periods, freq):
         cash_flow = coupon if t < n_periods else coupon + par
         term_convexity = (cash_flow * t * (t + 1)) / ((1 + ytm / (100 * freq)) ** (t + 2))
         convexity_sum += term_convexity
-    convexity = convexity_sum / (price * freq ** 2)
-    return convexity/10
+    convexity = (convexity_sum / (price * freq ** 2))/10
+    return convexity
+
+# Function to calculate convexity for callable bonds
+def calculate_convexity_callable(price, par, coupon_rate, call_price, call_date, ytm, settlement_date, freq):
+    coupon = coupon_rate / 100 * par / freq
+    n_periods_call = (call_date - settlement_date).days // (365 // freq)
+    convexity_sum = 0
+    for t in range(1, n_periods_call + 1):
+        cash_flow = coupon if t < n_periods_call else coupon + call_price
+        term_convexity = (cash_flow * t * (t + 1)) / ((1 + ytm / (100 * freq)) ** (t + 2))
+        convexity_sum += term_convexity
+    convexity = (convexity_sum / (price * freq ** 2))/10
+    return convexity
 
 # User inputs
 bond_type = st.selectbox("Bond Type:", ["Corporate", "Treasury", "Municipal", "Agency/GSE", "Fixed Rate"])
@@ -138,13 +144,19 @@ if col1.button("Calculate"):
         if n_periods <= 0:
             st.error("Error: Settlement date must be before the maturity date.")
         else:
-            st.write(f"Coupon Payment: {annual_coupon_rate / 100 * par_value / freq}")
-            st.write(f"Number of Periods: {n_periods}")
-            
+            coupon_payment = annual_coupon_rate / 100 * par_value / freq
             ytm = calculate_ytm(price, par_value, annual_coupon_rate, n_periods, freq)
             ytc = None
+            convexity_callable = None
+            duration_callable = None
             if callable:
                 ytc = calculate_ytc(price, par_value, annual_coupon_rate, call_price, call_date, settlement_date, freq)
+                convexity_callable = calculate_convexity_callable(price, par_value, annual_coupon_rate, call_price, call_date, ytm, settlement_date, freq)
+                duration_callable = calculate_macaulay_duration(par_value, annual_coupon_rate, ytc, n_periods, freq)
+                if duration_type == "Modified":
+                    duration_callable = calculate_modified_duration(duration_callable, ytc, freq)
+                elif duration_type == "Key Rate":
+                    duration_callable = calculate_key_rate_duration(price, par_value, annual_coupon_rate, ytc, n_periods, freq)
             
             macaulay_duration = calculate_macaulay_duration(par_value, annual_coupon_rate, ytm, n_periods, freq)
             if duration_type == "Macaulay":
@@ -159,15 +171,25 @@ if col1.button("Calculate"):
             accrued_interest = (datetime.now().date() - settlement_date).days / 365 * (annual_coupon_rate / 100) * par_value
             total_cost = price * quantity + total_markup
 
-            st.write(f"Accrued Interest: ${accrued_interest:.2f}")
-            st.write(f"Total Cost: ${total_cost:.2f}")
-            st.write(f"Yield to Maturity (YTM): {ytm:.2f}%")
+            # Create a DataFrame for the output
+            output_data = {
+                "Metric": ["Coupon Payment", "Number of Periods", "Accrued Interest", "Total Cost", "Yield to Maturity (YTM)", "Duration", "Convexity"],
+                "Value": [f"${coupon_payment:.2f}", n_periods, f"${accrued_interest:.2f}", f"${total_cost:.2f}", f"{ytm:.2f}%", f"{duration:.2f} years", f"{convexity:.2f} years"]
+            }
             if callable:
-                st.write(f"Yield to Call (YTC): {ytc:.2f}%")
-            else:
-                st.write("Yield to Call (YTC): Not Applicable or Calculation Error")
-            st.write(f"Duration ({duration_type}): {duration:.2f} years")
-            st.write(f"Convexity: {convexity:.2f} years")
+                output_data["Metric"].extend(["Yield to Call (YTC)", "Duration (Callable)", "Convexity (Callable)"])
+                output_data["Value"].extend([f"{ytc:.2f}%", f"{duration_callable:.2f} years", f"{convexity_callable:.2f} years"])
+
+            df_output = pd.DataFrame(output_data)
+
+            # Convert DataFrame to HTML table with bold headers and white background for headers
+            table_html = df_output.to_html(index=False, justify="left")
+            table_html = table_html.replace('<table border="1" class="dataframe">', '<table style="width:50%; border-collapse: collapse;">')
+            table_html = table_html.replace('<thead>', '<thead style="font-weight: bold; background-color: #ffffff;">')
+            table_html = table_html.replace('<th>', '<th style="border: 1px solid black; padding: 8px;">')
+            table_html = table_html.replace('<td>', '<td style="border: 1px solid black; padding: 8px;">')
+            
+            st.markdown(table_html, unsafe_allow_html=True)
             
             # Plotting the graph
             prices = np.linspace(price - 10, price + 10, 50)
@@ -201,12 +223,15 @@ The relationship between bond prices and yields is fundamental to bond investing
 - **Yield to Maturity (YTM)**: This is the total return expected on a bond if held until maturity. It accounts for the bond's current market price, par value, coupon interest rate, and time to maturity.
 - **Yield to Call (YTC)**: For callable bonds, this is the yield assuming the bond is called (redeemed by the issuer) before its maturity date. It considers the call price and the time until the call date.
 - **Yield to Worst (YTW)**: This is the lowest yield an investor can receive if the bond is called or matures early. It is the minimum between YTM and YTC.
+- **Duration**: This measures the sensitivity of the bond's price to changes in interest rates. Types of duration include Macaulay Duration, Modified Duration, and Key Rate Duration.
+- **Convexity**: This measures the sensitivity of the duration of the bond to changes in interest rates. It provides an estimate of the change in duration for a change in yield.
 
 #### How to Use the Calculator:
 
 1. **Enter Bond Details**: Input the bond's price, par value, coupon rate, and other relevant details.
-2. **Calculate Yields**: The calculator computes the YTM and YTC based on your inputs.
+2. **Calculate Yields**: The calculator computes the YTM and YTC (if the bond is callable) based on your inputs.
 3. **Analyze the Chart**: The interactive chart shows how bond prices and yields relate. Hover over the chart to see specific bond and price information that updates dynamically.
+4. **Review the Metrics**: The calculator provides key metrics such as coupon payment, number of periods, accrued interest, total cost, yield to maturity, duration, and convexity in a structured table. For callable bonds, additional metrics such as yield to call, callable duration, and callable convexity are also provided.
 
 #### Practical Insights:
 
