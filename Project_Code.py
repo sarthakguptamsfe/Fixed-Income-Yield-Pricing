@@ -203,7 +203,8 @@ if col1.button("Calculate"):
             fig.update_layout(
                 xaxis_title="Yield (%)",
                 yaxis_title="Price $",
-                legend_title="Yields"
+                legend_title="Yields",
+                title="Duration"
             )
             st.plotly_chart(fig)
 
